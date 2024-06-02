@@ -39,6 +39,7 @@ body {
   justify-content: center;
   align-items: center;
   transition: all 0.3s linear;
+  padding: 1rem;
 }
 
 /* titles */
@@ -46,6 +47,7 @@ h1 {
   color: var(--primary-color);
   font-size: 3rem;
   margin: 3rem 0;
+  text-align: center;
 }
 
 h2 {
@@ -94,6 +96,8 @@ input[type="checkbox"]:checked + .theme__label .theme__check-tag {
   justify-content: space-between;
   flex-direction: column;
   align-items: center;
+  width: 100%;
+  max-width: 600px;
 }
 
 /* buttons */
@@ -129,8 +133,10 @@ button:hover {
 
 /* DICES */
 .dice__container {
-  width: 100px;
-  height: 130px;
+  width: 100%;
+  display: flex;
+  justify-content: center;
+  flex-wrap: wrap;
 }
 
 .dice {
@@ -138,8 +144,9 @@ button:hover {
   border-radius: 10px;
   box-shadow: rgba(var(--box-shadow-color), 0.35) 0px 5px 15px;
   height: 100px;
-  position: relative;
   width: 100px;
+  position: relative;
+  margin: 0.5rem;
 }
 
 .dice .dice__dot {
@@ -204,7 +211,7 @@ button:hover {
   left: 70px;
 }
 
-/* palcing history dice dots */
+/* placing history dice dots */
 .history__item .dice .dice__dot {
   height: 10px;
   width: 10px;
