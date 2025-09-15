@@ -63,6 +63,12 @@ h2 {
 .theme__button {
   opacity: 0;
   position: absolute;
+  outline: none;
+  border: none;
+  box-shadow: none;
+  -webkit-appearance: none;
+  appearance: none;
+  -webkit-tap-highlight-color: transparent;
 }
 
 .theme__label {
@@ -75,6 +81,7 @@ h2 {
   padding: 0.7rem;
   font-size: 1.3rem;
   box-shadow: rgba(var(--box-shadow-color), 0.35) 0px 5px 15px;
+  transition: box-shadow 0.2s ease;
 }
 
 .theme__label .theme__check-tag {
@@ -88,6 +95,58 @@ h2 {
 
 input[type="checkbox"]:checked + .theme__label .theme__check-tag {
   transform: translateX(20px);
+}
+
+/* Remove default focus outlines/glows from inputs across browsers */
+input,
+textarea,
+select {
+  outline: none;
+  box-shadow: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* Remove mobile tap highlights from all interactive elements */
+* {
+  -webkit-tap-highlight-color: transparent;
+}
+
+input:focus,
+input:focus-visible,
+input:active,
+textarea:focus,
+textarea:focus-visible,
+select:focus,
+select:focus-visible {
+  outline: none;
+  box-shadow: none;
+}
+
+/* Firefox inner focus fix */
+input::-moz-focus-inner {
+  border: 0;
+}
+
+/* When the hidden checkbox is focused, show an accessible custom ring on the visible label */
+input[type="checkbox"]:focus + .theme__label,
+input[type="checkbox"]:focus-visible + .theme__label,
+input[type="checkbox"]:active + .theme__label {
+  box-shadow: 0 0 0 3px rgba(255, 165, 0, 0.5), rgba(var(--box-shadow-color), 0.35) 0px 5px 15px;
+}
+
+/* Explicitly suppress default focus visuals on the hidden theme checkbox */
+.theme__button:focus,
+.theme__button:focus-visible,
+.theme__button:active {
+  outline: none !important;
+  outline-color: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+  background: transparent !important;
+}
+
+.theme__button::-moz-focus-inner {
+  border: 0;
 }
 
 /* main */
@@ -105,14 +164,29 @@ button {
   background-color: var(--primary-color);
   color: var(--background-color);
   border: none;
+  outline: none;
   cursor: pointer;
   border-radius: 5px;
-  transition: background-color 0.2s ease;
+  transition: all 0.2s ease;
+  -webkit-tap-highlight-color: transparent;
 }
 
 button:hover {
   background-color: var(--accent-color);
   color: #f5f5f5;
+}
+
+/* Accessible custom focus/active styles (replaces default blue outline) */
+button:focus,
+button:active,
+button:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(255, 165, 0, 0.5);
+}
+
+/* Firefox inner focus fix */
+button::-moz-focus-inner {
+  border: 0;
 }
 
 .button__container {
