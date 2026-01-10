@@ -44,12 +44,15 @@ body {
   flex-direction: column;
   justify-content: center;
   align-items: center;
-  transition: all 0.3s linear;
+  /* Optimized: Only transition what changes for theme switching to avoid layout thrashing */
+  transition: background-color 0.3s linear, color 0.3s linear;
   padding: 1rem;
   -webkit-user-select: none;
   -moz-user-select: none;
   -ms-user-select: none;
   user-select: none;
+  /* GPU acceleration hint */
+  will-change: background-color;
 }
 
 /* titles */

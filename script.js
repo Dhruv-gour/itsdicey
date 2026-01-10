@@ -1,65 +1,73 @@
+// Performance Optimization: Cache preferences and DOM elements
+let diceSoundEnabled = localStorage.getItem("diceSoundEnabled") !== "false";
+let isDarkTheme = localStorage.getItem("darkTheme") === "true";
+let rollHistory = JSON.parse(localStorage.getItem("rollHistory") || "[]");
+
 // Preload audio objects
 let diceAudio = null;
 let hapticAudioContext = null;
 
 // Initialize audio when page loads
 const initializeAudio = () => {
-  // Preload dice sound
-  diceAudio = new Audio("https://bit.ly/dice-sound");
+  diceAudio = new Audio("dice-sound.mp3");
   diceAudio.preload = "auto";
   diceAudio.load();
   
-  // Initialize Web Audio API for haptic sounds
   try {
     hapticAudioContext = new (window.AudioContext || window.webkitAudioContext)();
   } catch (e) {
-    console.log("Web Audio API not supported");
+    console.error("Web Audio API not supported");
   }
 };
 
-// Function to check if sound is enabled
-const isSoundEnabled = () => {
-  return localStorage.getItem("diceSoundEnabled") !== "false";
-};
+const isSoundEnabled = () => diceSoundEnabled;
 
-// Function to play soft haptic sound
 const playHapticSound = () => {
-  if (!isSoundEnabled() || !hapticAudioContext) return;
+  if (!diceSoundEnabled || !hapticAudioContext) return;
   
   try {
+    if (hapticAudioContext.state === 'suspended') {
+      hapticAudioContext.resume();
+    }
+    
     const oscillator = hapticAudioContext.createOscillator();
     const gainNode = hapticAudioContext.createGain();
     
     oscillator.connect(gainNode);
     gainNode.connect(hapticAudioContext.destination);
     
-    // Soft click sound - short, low frequency
     oscillator.frequency.value = 800;
     oscillator.type = 'sine';
     
-    gainNode.gain.setValueAtTime(0.1, hapticAudioContext.currentTime);
-    gainNode.gain.exponentialRampToValueAtTime(0.01, hapticAudioContext.currentTime + 0.1);
+    const startTime = hapticAudioContext.currentTime;
+    gainNode.gain.setValueAtTime(0.1, startTime);
+    gainNode.gain.exponentialRampToValueAtTime(0.01, startTime + 0.1);
     
-    oscillator.start(hapticAudioContext.currentTime);
-    oscillator.stop(hapticAudioContext.currentTime + 0.1);
+    oscillator.start(startTime);
+    oscillator.stop(startTime + 0.1);
   } catch (e) {
-    // Fallback: silent if Web Audio API fails
   }
 };
 
 const setRollButton = () => {
-  const dicesElements = document.querySelectorAll(".dice");
   const rollButton = document.getElementById("roll-button");
+  const dicesElements = document.querySelectorAll(".dice");
 
-  rollButton.addEventListener("click", () => {
+  const handleRoll = () => {
+    if (rollButton.disabled) return;
+    
+    rollButton.disabled = true;
     setDice(dicesElements);
-  });
+    
+    setTimeout(() => {
+      rollButton.disabled = false;
+    }, 1300);
+  };
+
+  rollButton.addEventListener("click", handleRoll);
   
-  // Make dice clickable - clicking any dice triggers roll
   dicesElements.forEach((dice) => {
-    dice.addEventListener("click", () => {
-      setDice(dicesElements);
-    });
+    dice.addEventListener("click", handleRoll);
   });
 };
 
@@ -68,24 +76,19 @@ const setDice = (elements) => {
 
   elements.forEach((dice) => {
     dice.classList.remove("active");
-    handleDice(randomNumber, dice);
+    if (dice.id === `dice-${randomNumber}`) {
+      setDots(dice);
+      addToHistory(randomNumber);
+    }
   });
 };
 
-const handleDice = (number, dice) => {
-  if (dice.id === `dice-${number}`) {
-    setDots(dice);
-    addToHistory(dice);
-  }
-};
-
 const setDots = (dice) => {
-  const dots = Array.from(dice.children);
+  const dots = dice.querySelectorAll(".dice__dot");
 
-  // Check if sound is enabled and play dice sound
-  if (isSoundEnabled() && diceAudio) {
-    diceAudio.currentTime = 0; // Reset to beginning
-    diceAudio.play().catch(e => console.log("Sound play failed:", e));
+  if (diceSoundEnabled && diceAudio) {
+    diceAudio.currentTime = 0;
+    diceAudio.play().catch(e => {}); 
   }
   
   displayDots(dots, dice);
@@ -94,219 +97,176 @@ const setDots = (dice) => {
 const displayDots = (dots, dice) => {
   dots.forEach((dot) => {
     dot.classList.add("hide");
+  });
 
-    setTimeout(() => {
-      dot.classList.remove("hide");
-    }, 1000);
-  });
   setTimeout(() => {
-    dice.classList.add("active");
-  });
+    dots.forEach((dot) => {
+      dot.classList.remove("hide");
+    });
+  }, 1000);
+  
+  dice.classList.add("active");
 };
 
-const getRelativeTime = (date) => {
+const getRelativeTime = (timestamp) => {
   const now = new Date();
+  const date = new Date(timestamp);
   const diffInSeconds = Math.floor((now - date) / 1000);
   
-  if (diffInSeconds < 5) {
-    return "just now";
-  } else if (diffInSeconds < 60) {
-    return `${diffInSeconds} seconds ago`;
-  } else if (diffInSeconds < 3600) {
+  if (diffInSeconds < 5) return "just now";
+  if (diffInSeconds < 60) return `${diffInSeconds} seconds ago`;
+  if (diffInSeconds < 3600) {
     const minutes = Math.floor(diffInSeconds / 60);
     return `${minutes} minute${minutes > 1 ? 's' : ''} ago`;
-  } else if (diffInSeconds < 86400) {
+  }
+  if (diffInSeconds < 86400) {
     const hours = Math.floor(diffInSeconds / 3600);
     return `${hours} hour${hours > 1 ? 's' : ''} ago`;
-  } else {
-    const days = Math.floor(diffInSeconds / 86400);
-    return `${days} day${days > 1 ? 's' : ''} ago`;
   }
+  const days = Math.floor(diffInSeconds / 86400);
+  return `${days} day${days > 1 ? 's' : ''} ago`;
 };
 
-const addToHistory = (dice) => {
+const renderHistoryItem = (number, timestamp, isNew = false) => {
   const listItem = document.createElement("li");
-  const diceCopy = dice.cloneNode(true);
+  listItem.classList.add("history__item");
+  
+  // Get the dots for this number
+  const diceElement = document.getElementById(`dice-${number}`).cloneNode(true);
+  diceElement.style.display = "block";
+  diceElement.classList.remove("active");
+  diceElement.querySelectorAll(".dice__dot").forEach(d => d.classList.remove("hide"));
 
-  setDiceHistory(listItem, diceCopy);
-};
+  listItem.innerHTML = `
+    <div class="history__item-content">
+      <div class="history__item-left">
+        <span class="history__item-text">You rolled</span>
+        <div class="history__timestamp">${getRelativeTime(timestamp)}</div>
+      </div>
+      ${diceElement.outerHTML}
+    </div>
+  `;
 
-const setDiceHistory = (item, dice) => {
-  dice.style.display = "block";
-  dice.querySelectorAll("span").forEach((dot) => {
-    dot.classList.remove("hide");
-  });
+  const historyList = document.getElementById("history-list");
+  const header = document.querySelector(".history__header");
+  const clearBtn = document.getElementById("clear-button");
 
-  displayDiceHistory(item, dice);
+  if (isNew) {
+    historyList.insertBefore(listItem, historyList.firstChild);
+  } else {
+    historyList.appendChild(listItem);
+  }
+
+  header.classList.add("switch-display");
+  clearBtn.classList.remove("hide");
   setClearButton();
 };
 
-const displayDiceHistory = (item, dice) => {
-  setTimeout(() => {
-    item.classList.add("history__item");
-    
-    // Create the main content container
-    const contentContainer = document.createElement("div");
-    contentContainer.classList.add("history__item-content");
-    
-    // Create left side container for text and timestamp
-    const leftContainer = document.createElement("div");
-    leftContainer.classList.add("history__item-left");
-    
-    // Create text element
-    const textElement = document.createElement("span");
-    textElement.textContent = "You rolled";
-    textElement.classList.add("history__item-text");
-    
-    // Create timestamp
-    const timestamp = document.createElement("div");
-    timestamp.classList.add("history__timestamp");
-    timestamp.textContent = getRelativeTime(new Date());
-    
-    // Append text and timestamp to left container
-    leftContainer.appendChild(textElement);
-    leftContainer.appendChild(timestamp);
-    
-    // Append left container and dice to main content
-    contentContainer.appendChild(leftContainer);
-    contentContainer.appendChild(dice);
-    
-    // Append main content to item
-    item.appendChild(contentContainer);
+const addToHistory = (number) => {
+  const timestamp = Date.now();
+  rollHistory.unshift({ number, timestamp });
+  
+  // Keep history manageable (e.g., last 50 rolls)
+  if (rollHistory.length > 50) rollHistory.pop();
+  
+  localStorage.setItem("rollHistory", JSON.stringify(rollHistory));
 
-    addDiceToTop(item);
+  setTimeout(() => {
+    renderHistoryItem(number, timestamp, true);
   }, 1300);
 };
 
-const addDiceToTop = (item) => {
-  const historyElements = getHistoryElements();
-  const fistChild = historyElements.list.firstChild;
-
-  historyElements.list.insertBefore(item, fistChild);
-  historyElements.header.classList.add("switch-display");
-  historyElements.button.classList.remove("hide");
-};
-
-const getHistoryElements = () => {
-  const historyElements = {
-    header: document.querySelector(".history__header"),
-    list: document.querySelector("#history-list"),
-    button: document.querySelector("#clear-button")
-  };
-
-  return historyElements;
-};
-
-const setClearButton = () => {
-  const clearButton = getHistoryElements().button;
-  
-  // Check if button exists and hasn't already been set up
-  if (!clearButton || clearButton.dataset.hapticSetup === "true") {
-    return;
+const loadHistory = () => {
+  if (rollHistory.length > 0) {
+    const historyList = document.getElementById("history-list");
+    historyList.innerHTML = "";
+    rollHistory.forEach(item => {
+      renderHistoryItem(item.number, item.timestamp);
+    });
   }
-  
-  // Mark as set up to prevent duplicate listeners
-  clearButton.dataset.hapticSetup = "true";
-  
-  clearButton.addEventListener("click", () => {
-    playHapticSound(); // Play haptic sound
-    clearHistory();
-  });
 };
+
+const setClearButton = (() => {
+  let isInitialized = false;
+  
+  return () => {
+    if (isInitialized) return;
+    const clearButton = document.getElementById("clear-button");
+    if (!clearButton) return;
+    
+    clearButton.addEventListener("click", () => {
+      playHapticSound();
+      clearHistory();
+    });
+    isInitialized = true;
+  };
+})();
 
 const clearHistory = () => {
-  const historyElements = getHistoryElements();
+  const historyList = document.getElementById("history-list");
+  const header = document.querySelector(".history__header");
+  const clearBtn = document.getElementById("clear-button");
 
-  historyElements.button.classList.add("hide");
-  historyElements.header.classList.remove("switch-display");
-
-  while (historyElements.list.firstChild) {
-    historyElements.list.removeChild(historyElements.list.firstChild);
-  }
-  
-  // Reset the haptic setup flag when history is cleared
-  if (historyElements.button) {
-    historyElements.button.dataset.hapticSetup = "false";
-  }
+  clearBtn.classList.add("hide");
+  header.classList.remove("switch-display");
+  historyList.innerHTML = "";
+  rollHistory = [];
+  localStorage.removeItem("rollHistory");
 };
 
 const setChangeTheme = () => {
   const themeButton = document.getElementById("theme-button");
-
   themeButton.addEventListener("click", () => {
-    playHapticSound(); // Play haptic sound
+    playHapticSound();
     document.documentElement.classList.toggle("dark-theme");
+    isDarkTheme = document.documentElement.classList.contains("dark-theme");
+    localStorage.setItem("darkTheme", isDarkTheme);
   });
 };
 
 const setSettingsButton = () => {
-  const settingsButton = document.getElementById("settings-button");
-  const settingsPopup = document.getElementById("settings-popup");
-  const settingsOverlay = document.getElementById("settings-overlay");
-  const settingsClose = document.getElementById("settings-close");
-  const soundToggle = document.getElementById("sound-toggle");
-  const themeToggle = document.getElementById("theme-toggle");
-  const helpBtn = document.getElementById("help-btn");
-
-  // Open settings popup with haptic sound
-  settingsButton.addEventListener("click", () => {
-    playHapticSound(); // Play haptic sound
-    settingsPopup.classList.add("active");
-    document.body.style.overflow = "hidden"; // Prevent background scrolling
-  });
-
-  // Close settings popup
-  const closeSettings = () => {
-    settingsPopup.classList.remove("active");
-    document.body.style.overflow = "auto"; // Restore scrolling
+  const items = {
+    btn: document.getElementById("settings-button"),
+    popup: document.getElementById("settings-popup"),
+    overlay: document.getElementById("settings-overlay"),
+    close: document.getElementById("settings-close"),
+    soundToggle: document.getElementById("sound-toggle"),
+    themeToggle: document.getElementById("theme-toggle"),
+    helpBtn: document.getElementById("help-btn")
   };
 
-  settingsClose.addEventListener("click", closeSettings);
-  settingsOverlay.addEventListener("click", closeSettings);
+  const openSettings = () => {
+    playHapticSound();
+    items.popup.classList.add("active");
+    document.body.style.overflow = "hidden";
+  };
 
-  // Sound toggle functionality
-  let soundEnabled = true;
-  soundToggle.addEventListener("change", (e) => {
-    soundEnabled = e.target.checked;
-    localStorage.setItem("diceSoundEnabled", soundEnabled);
-    // Play haptic sound when toggling (only if enabling)
-    if (soundEnabled) {
-      playHapticSound();
-    }
+  const closeSettings = () => {
+    items.popup.classList.remove("active");
+    document.body.style.overflow = "auto";
+  };
+
+  items.btn.addEventListener("click", openSettings);
+  items.close.addEventListener("click", closeSettings);
+  items.overlay.addEventListener("click", closeSettings);
+
+  items.soundToggle.checked = diceSoundEnabled;
+  items.soundToggle.addEventListener("change", (e) => {
+    diceSoundEnabled = e.target.checked;
+    localStorage.setItem("diceSoundEnabled", diceSoundEnabled);
+    if (diceSoundEnabled) playHapticSound();
   });
 
-  // Load sound preference from localStorage (default to true/enabled)
-  const savedSoundPreference = localStorage.getItem("diceSoundEnabled");
-  if (savedSoundPreference !== null) {
-    soundEnabled = savedSoundPreference === "true";
-    soundToggle.checked = soundEnabled;
-  } else {
-    // Enable sound by default if no preference is saved
-    soundEnabled = true;
-    soundToggle.checked = true;
-    localStorage.setItem("diceSoundEnabled", "true");
-  }
-
-  // Theme toggle functionality with haptic sound
-  themeToggle.addEventListener("change", (e) => {
-    playHapticSound(); // Play haptic sound
-    document.documentElement.classList.toggle("dark-theme");
-    localStorage.setItem("darkTheme", e.target.checked);
+  items.themeToggle.checked = isDarkTheme;
+  items.themeToggle.addEventListener("change", (e) => {
+    playHapticSound();
+    document.documentElement.classList.toggle("dark-theme", e.target.checked);
+    isDarkTheme = e.target.checked;
+    localStorage.setItem("darkTheme", isDarkTheme);
   });
 
-  // Load theme preference from localStorage
-  const savedTheme = localStorage.getItem("darkTheme");
-  if (savedTheme === "true") {
-    document.documentElement.classList.add("dark-theme");
-    themeToggle.checked = true;
-  }
-
-  // Help button functionality
-  helpBtn.addEventListener("click", () => {
-    // Close settings popup first
+  items.helpBtn.addEventListener("click", () => {
     closeSettings();
-    
-    // Open help popup after a short delay
     setTimeout(() => {
       const helpPopup = document.getElementById("help-popup");
       helpPopup.classList.add("active");
@@ -314,103 +274,79 @@ const setSettingsButton = () => {
     }, 300);
   });
 
-  // Close popup with Escape key
   document.addEventListener("keydown", (e) => {
-    if (e.key === "Escape" && settingsPopup.classList.contains("active")) {
+    if (e.key === "Escape" && items.popup.classList.contains("active")) {
       closeSettings();
     }
   });
-
-  return { soundEnabled };
 };
 
 const setHelpPopup = () => {
-  const helpPopup = document.getElementById("help-popup");
-  const helpOverlay = document.getElementById("help-overlay");
-  const helpClose = document.getElementById("help-close");
+  const items = {
+    popup: document.getElementById("help-popup"),
+    overlay: document.getElementById("help-overlay"),
+    close: document.getElementById("help-close")
+  };
 
-  // Close help popup
   const closeHelp = () => {
-    helpPopup.classList.remove("active");
+    items.popup.classList.remove("active");
     document.body.style.overflow = "auto";
   };
 
-  helpClose.addEventListener("click", closeHelp);
-  helpOverlay.addEventListener("click", closeHelp);
+  items.close.addEventListener("click", closeHelp);
+  items.overlay.addEventListener("click", closeHelp);
 
-  // Close help popup with Escape key
   document.addEventListener("keydown", (e) => {
-    if (e.key === "Escape" && helpPopup.classList.contains("active")) {
+    if (e.key === "Escape" && items.popup.classList.contains("active")) {
       closeHelp();
     }
   });
 };
 
-// Disable text selection and context menu
-const disableTextSelection = () => {
-  // Disable context menu (right-click and long-press)
-  document.addEventListener("contextmenu", (e) => {
-    e.preventDefault();
-    return false;
-  });
+const disableInterruptions = () => {
+  document.addEventListener("contextmenu", (e) => e.preventDefault());
   
-  // Disable text selection via keyboard shortcuts
-  document.addEventListener("keydown", (e) => {
-    // Disable Ctrl+A (Select All)
-    if (e.ctrlKey && e.key === "a") {
+  const preventSelect = (e) => {
+    if ((e.ctrlKey || e.metaKey) && ['a', 'c', 'x', 'v'].includes(e.key.toLowerCase())) {
       e.preventDefault();
       return false;
     }
-    // Disable Ctrl+C (Copy)
-    if (e.ctrlKey && e.key === "c") {
-      e.preventDefault();
-      return false;
-    }
-    // Disable Ctrl+X (Cut)
-    if (e.ctrlKey && e.key === "x") {
-      e.preventDefault();
-      return false;
-    }
-    // Disable Ctrl+V (Paste) - optional, but disabling for consistency
-    if (e.ctrlKey && e.key === "v") {
-      e.preventDefault();
-      return false;
-    }
-  });
+  };
+  document.addEventListener("keydown", preventSelect);
   
-  // Disable drag and drop
-  document.addEventListener("dragstart", (e) => {
-    e.preventDefault();
-    return false;
-  });
+  document.addEventListener("dragstart", (e) => e.preventDefault());
   
-  // Disable long-press on mobile devices
   let touchStartTime = 0;
-  document.addEventListener("touchstart", (e) => {
-    touchStartTime = Date.now();
-  });
-  
+  document.addEventListener("touchstart", () => { touchStartTime = Date.now(); }, { passive: true });
   document.addEventListener("touchend", (e) => {
-    const touchDuration = Date.now() - touchStartTime;
-    // If touch duration is more than 500ms, prevent default (long-press)
-    if (touchDuration > 500) {
-      e.preventDefault();
-      return false;
-    }
+    if (Date.now() - touchStartTime > 500) e.preventDefault();
   });
   
-  // Disable text selection on double-click
-  document.addEventListener("selectstart", (e) => {
-    e.preventDefault();
-    return false;
-  });
+  document.addEventListener("selectstart", (e) => e.preventDefault());
+};
+
+const registerServiceWorker = async () => {
+  if ('serviceWorker' in navigator) {
+    try {
+      await navigator.serviceWorker.register('./sw.js');
+    } catch (error) {
+      console.error('Service Worker registration failed:', error);
+    }
+  }
 };
 
 window.addEventListener("DOMContentLoaded", () => {
-  disableTextSelection(); // Disable text selection and context menu
-  initializeAudio(); // Initialize audio first
+  disableInterruptions();
+  initializeAudio();
   setChangeTheme();
   setRollButton();
   setSettingsButton();
   setHelpPopup();
+  registerServiceWorker();
+  
+  if (isDarkTheme) {
+    document.documentElement.classList.add("dark-theme");
+  }
+  
+  loadHistory();
 });
