@@ -79,6 +79,9 @@ const setDice = (elements) => {
     if (dice.id === `dice-${randomNumber}`) {
       setDots(dice);
       addToHistory(randomNumber);
+      
+      // Trigger new impact feedback logic
+      handleDice(randomNumber, dice);
     }
   });
 };
@@ -206,6 +209,13 @@ const clearHistory = () => {
   const historyList = document.getElementById("history-list");
   const header = document.querySelector(".history__header");
   const clearBtn = document.getElementById("clear-button");
+  const drawer = document.getElementById('history-container');
+
+  // Automatically close the drawer when history is cleared
+  if (drawer && drawer.classList.contains('open')) {
+    drawer.classList.remove('open');
+    playHapticSound(); // Feedback for closure
+  }
 
   clearBtn.classList.add("hide");
   header.classList.remove("switch-display");
@@ -335,18 +345,107 @@ const registerServiceWorker = async () => {
   }
 };
 
+// Haptic Feedback for Dice Impact
+const playImpactHaptic = () => {
+    if (!diceSoundEnabled || !navigator.vibrate) return;
+    // Stronger "thud" for impact
+    navigator.vibrate(15);
+};
+
+// ... existing code ...
+
+const scaleDiceOnImpact = (dice) => {
+    dice.style.transform = "scale(0.9)";
+    setTimeout(() => {
+        dice.style.transform = "scale(1)";
+    }, 100);
+}
+
+const handleDice = (number, dice) => {
+    // ... existing code ...
+    
+    // Impact effect when animation finishes (approximate timing)
+    setTimeout(() => {
+        playImpactHaptic();
+        // Visual impact feedback
+        scaleDiceOnImpact(dice);
+    }, 400); // Sync with animation bounce
+};
+
+// History Drawer Logic - Refined for scrolling and smoother interaction
+const initHistoryDrawer = () => {
+    const drawer = document.getElementById('history-container');
+    const handle = document.getElementById('history-handle');
+    const historyBody = document.querySelector('.history__body');
+    let startY = 0;
+    let isDragging = false;
+    const threshold = 50;
+
+    const openDrawer = () => {
+        drawer.classList.add('open');
+        playHapticSound();
+    };
+    
+    const closeDrawer = () => {
+        drawer.classList.remove('open');
+        playHapticSound();
+    };
+
+    // Toggle on handle click
+    handle.addEventListener('click', (e) => {
+        drawer.classList.toggle('open');
+        playHapticSound();
+    });
+
+    // Swipe up on the drawer itself to open
+    drawer.addEventListener('touchstart', (e) => {
+        startY = e.touches[0].clientY;
+        isDragging = true;
+    }, { passive: true });
+
+    drawer.addEventListener('touchmove', (e) => {
+        if (!isDragging) return;
+        const currentY = e.touches[0].clientY;
+        const diff = currentY - startY;
+
+        // If drawer is closed and we swipe up, open it
+        if (!drawer.classList.contains('open') && diff < -threshold) {
+            openDrawer();
+            isDragging = false;
+        }
+        
+        // If drawer is open, scrolling at top, and we swipe down, close it
+        if (drawer.classList.contains('open') && diff > threshold && historyBody.scrollTop <= 0) {
+            closeDrawer();
+            isDragging = false;
+        }
+    }, { passive: true });
+
+    drawer.addEventListener('touchend', () => {
+        isDragging = false;
+    });
+
+    // Close on click outside
+    document.addEventListener('click', (e) => {
+        if (drawer.classList.contains('open') && !drawer.contains(e.target)) {
+            closeDrawer();
+        }
+    });
+};
+
 window.addEventListener("DOMContentLoaded", () => {
-  disableInterruptions();
-  initializeAudio();
-  setChangeTheme();
-  setRollButton();
-  setSettingsButton();
-  setHelpPopup();
-  registerServiceWorker();
+    disableInterruptions();
+    initializeAudio();
+    setChangeTheme();
+    setRollButton();
+    setSettingsButton();
+    setHelpPopup();
+    registerServiceWorker();
+    initHistoryDrawer(); // Initialize drawer
+    
+    if (isDarkTheme) {
+        document.documentElement.classList.add("dark-theme");
+    }
   
-  if (isDarkTheme) {
-    document.documentElement.classList.add("dark-theme");
-  }
-  
-  loadHistory();
+    loadHistory();
 });

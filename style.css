@@ -106,7 +106,7 @@ h2 {
   transition: transform 0.2s linear;
 }
 
-input[type="checkbox"]:checked + .theme__label .theme__check-tag {
+input[type="checkbox"]:checked+.theme__label .theme__check-tag {
   transform: translateX(20px);
 }
 
@@ -141,9 +141,9 @@ input::-moz-focus-inner {
 }
 
 /* When the hidden checkbox is focused, show an accessible custom ring on the visible label */
-input[type="checkbox"]:focus + .theme__label,
-input[type="checkbox"]:focus-visible + .theme__label,
-input[type="checkbox"]:active + .theme__label {
+input[type="checkbox"]:focus+.theme__label,
+input[type="checkbox"]:focus-visible+.theme__label,
+input[type="checkbox"]:active+.theme__label {
   box-shadow: 0 0 0 3px rgba(255, 165, 0, 0.5), rgba(var(--box-shadow-color), 0.35) 0px 5px 15px;
 }
 
@@ -170,7 +170,8 @@ input[type="checkbox"]:active + .theme__label {
   align-items: center;
   width: 100%;
   max-width: 600px;
-  padding-bottom: 70px; /* Add padding to prevent content from being hidden behind ad */
+  padding-bottom: 70px;
+  /* Add padding to prevent content from being hidden behind ad */
 }
 
 /* Settings Icon */
@@ -219,6 +220,7 @@ input[type="checkbox"]:active + .theme__label {
   0% {
     transform: rotate(0deg);
   }
+
   100% {
     transform: rotate(360deg);
   }
@@ -369,11 +371,11 @@ input[type="checkbox"]:active + .theme__label {
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
 }
 
-.settings__toggle-input:checked + .settings__toggle-label {
+.settings__toggle-input:checked+.settings__toggle-label {
   background-color: var(--accent-color);
 }
 
-.settings__toggle-input:checked + .settings__toggle-label .settings__toggle-slider {
+.settings__toggle-input:checked+.settings__toggle-label .settings__toggle-slider {
   transform: translateX(30px);
 }
 
@@ -692,23 +694,19 @@ button::-moz-focus-inner {
   width: 100%;
   height: 100%;
   border-radius: 12px;
-  background: linear-gradient(
-    to left,
-    #1E2A3A 0%,
-    #607890 8%,
-    #607890 92%,
-    #1E2A3A 100%
-  );
+  background: linear-gradient(to left,
+      #1E2A3A 0%,
+      #607890 8%,
+      #607890 92%,
+      #1E2A3A 100%);
 }
 
 .dark-theme .roll__button .edge {
-  background: linear-gradient(
-    to left,
-    #f5f5f5 0%,
-    #607890 8%,
-    #607890 92%,
-    #f5f5f5 100%
-  );
+  background: linear-gradient(to left,
+      #f5f5f5 0%,
+      #607890 8%,
+      #607890 92%,
+      #f5f5f5 100%);
 }
 
 .roll__button .front {
@@ -956,24 +954,122 @@ button::-moz-focus-inner {
   display: none;
 }
 
-/* HISTORY */
+/* HISTORY DRAWER - Progressive Disclosure */
 .history__container {
   text-align: center;
   width: 100%;
-  border: 1px solid var(--primary-color);
-  border-radius: 5px;
-  padding: 1rem 1.5rem;
+  max-width: 600px;
+  background-color: var(--background-color);
+  border-top-left-radius: 24px;
+  border-top-right-radius: 24px;
+  padding: 0 1.5rem 1rem;
   color: var(--primary-color);
+
+  position: fixed;
+  bottom: 0;
+  left: 50%;
+  /* Peek height increased slightly to fit both handle and label */
+  transform: translateX(-50%) translateY(calc(100% - 50px));
+  z-index: 1000;
+  box-shadow: 0 -8px 30px rgba(0, 0, 0, 0.12);
+  transition: transform 0.4s cubic-bezier(0.2, 0.8, 0.2, 1.1);
+  /* Slight bounce */
+  height: 65vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.history__container.open {
+  transform: translateX(-50%) translateY(0);
+}
+
+/* Handle and Discoverability */
+.history__handle-area {
+  padding: 12px 0 8px;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.history__handle {
+  width: 36px;
+  height: 4px;
+  background-color: var(--secondary-color);
+  border-radius: 10px;
+  margin: 0 auto 6px auto;
+  opacity: 0.3;
+}
+
+.history__peek-label {
+  font-size: 1rem;
+  font-weight: 700;
+  letter-spacing: 0.1rem;
+  color: var(--secondary-color);
+  opacity: 0.6;
+  text-transform: uppercase;
+  transition: opacity 0.3s ease;
+}
+
+.history__container.open .history__peek-label {
+  opacity: 0;
+  pointer-events: none;
 }
 
 .history__header {
   display: flex;
-  justify-content: center;
+  justify-content: space-between;
+  align-items: center;
   width: 100%;
+  padding: 0.5rem 0 1rem;
+  border-bottom: 1px solid rgba(var(--primary-color), 0.05);
+  flex-shrink: 0;
+}
+
+.history__title {
+  font-size: 1.8rem;
+  margin: 0;
+  opacity: 0.9;
+}
+
+.history__button {
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background-color: rgba(var(--primary-color), 0.05);
+  color: var(--primary-color);
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  border: none;
+  cursor: pointer;
+}
+
+.history__button:hover {
+  background-color: #ff4757;
+  /* Subue red for delete action on hover */
+  color: white;
+  transform: scale(1.1);
+}
+
+.history__button svg {
+  width: 16px;
+  height: 16px;
 }
 
 .history__header.switch-display {
   justify-content: space-between;
+}
+
+.history__body {
+  flex: 1;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  margin-top: 0.5rem;
+  /* Reduced top margin */
+}
+
+.history__list {
+  padding-bottom: 2rem;
 }
 
 .history__item {
@@ -983,7 +1079,7 @@ button::-moz-focus-inner {
   align-items: center;
   justify-content: space-between;
   width: 100%;
-  border-bottom: 0.1px solid var(--primary-color);
+  border-bottom: 0.1px solid rgba(var(--primary-color), 0.1);
   position: relative;
 }
 
@@ -1015,7 +1111,7 @@ button::-moz-focus-inner {
 }
 
 .history__item:first-of-type {
-  margin-top: 2rem;
+  margin-top: 1rem;
 }
 
 .history__item:last-of-type {
@@ -1027,12 +1123,17 @@ button::-moz-focus-inner {
   width: 50px;
   height: 50px;
   box-shadow: none;
-  border-radius: 2px;
-  border: 1px solid var(--primary-color);
+  display: block;
+  /* Ensure visible in history */
+  border-radius: 8px;
+  border: 1px solid rgba(var(--primary-color), 0.2);
+  cursor: default;
+  pointer-events: none;
 }
 
 /* animation */
 @keyframes dice-roll {
+
   0%,
   100% {
     transform: translate(0, 0);
@@ -1054,20 +1155,36 @@ button::-moz-focus-inner {
   }
 }
 
-/* Ad Container */
+/* Ad Container Integrated into UI */
+.ad__wrapper {
+  background-color: rgba(var(--primary-color), 0.03);
+  border: 1px solid rgba(var(--primary-color), 0.05);
+  border-radius: 12px;
+  padding: 1.2rem;
+  margin: 0.5rem 0 0.5rem;
+  /* Reduced bottom margin */
+  position: relative;
+  overflow: hidden;
+  flex-shrink: 0;
+}
+
+.ad__tag {
+  position: absolute;
+  top: 4px;
+  left: 8px;
+  font-size: 0.8rem;
+  font-weight: 300;
+  text-transform: uppercase;
+  letter-spacing: 0.05rem;
+  opacity: 0.4;
+  color: var(--primary-color);
+}
+
 .ad__container {
-  position: fixed;
-  bottom: 0;
-  left: 50%;
-  transform: translateX(-50%);
   width: 100%;
-  max-width: 320px;
-  height: 50px;
-  z-index: 100;
   display: flex;
   justify-content: center;
   align-items: center;
-  background-color: transparent;
 }
 
 .ad__container iframe {
